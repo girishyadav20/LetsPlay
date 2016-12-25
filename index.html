@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/images/favicon.png">
+
+
+    <title>Let's Play</title>
+
+    <link rel="stylesheet" href="styles/inline.css">
+
+    <!-- for Chrome on Android & Opera
+    <link rel="manifest" href="/manifest.json">-->
+
+    <!-- for Safari on iOS
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="Weather PWA">
+    <link rel="apple-touch-icon" href="images/icons/icon-152x152.png">-->
+
+    <!-- for Tile icon for windows
+    <meta name="msapplication-TileImage" content="images/icons/icon-144x144.png">
+    <meta name="msapplication-TileColor" content="#2F3BA2">-->
+
+  </head>
+  <body>
+    <header class="header">
+      <h1 class="header-title">Let's Play</h1>
+      <span class="header-avatar"><img src="images/user-32.png" class="avatar"></span>
+      <button class="header-signin-btn" hidden>SIGN IN</button>
+    </header>
+
+    <main class="main">
+      <div class="card eventTemplate" data-eventid="" hidden>
+        <div class="date"></div>
+        <div class="venue"></div>
+        <div class="choices">
+           <div class="yes score" data-score="0">
+             <img class="icon yes-icon">
+           </div>
+           <div class="no score" data-score="0">
+             <img class="icon no-icon">
+           </div>
+           <div class="maybe score" data-score="0">
+             <img class="icon maybe-icon">
+           </div>
+        </div>
+      </div>
+    </main>
+
+    <div class="loader">
+      <svg viewBox="0 0 32 32" width="32" height="32">
+        <circle id="spinner" cx="16" cy="16" r="14" fill="none"></circle>
+      </svg>
+    </div>
+    <!-- <a href="https://icons8.com/web-app/12982/Cricket">Icons by Icons8</a> -->
+
+    <script src="scripts/main.js" charset="utf-8"></script>
+  </body>
+</html>
