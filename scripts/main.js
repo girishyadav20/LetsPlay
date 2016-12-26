@@ -28,9 +28,24 @@
     eventCard.dataset.eventid = data.eventid;
     eventCard.querySelector('.date').textContent = formatDate(eventDate);
     eventCard.querySelector('.venue').textContent = data.venue;
-    eventCard.querySelector('.choices .yes').dataset.score = yesCount;
-    eventCard.querySelector('.choices .no').dataset.score = noCount;
-    eventCard.querySelector('.choices .maybe').dataset.score = maybeCount;
+    eventCard.querySelector('.choices .yes .score').dataset.score = yesCount;
+    eventCard.querySelector('.choices .no .score').dataset.score = noCount;
+    eventCard.querySelector('.choices .maybe .score').dataset.score = maybeCount;
+
+    //attach event listners only if event is in future
+    //responses can be made upto midnight of match day
+    var deadline = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+    if(Date.now() > deadline){
+      // eventCard.querySelector('.choices .yes .icon').addEventListner('click', function(e) {
+      //
+      // });
+      // eventCard.querySelector('.choices .no .icon').addEventListner('click', function(e) {
+      //
+      // });
+      // eventCard.querySelector('.choices .maybe .icon').addEventListner('click', function(e) {
+      //
+      // });
+    }
 
     app.container.appendChild(eventCard);
   }

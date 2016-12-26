@@ -17,7 +17,7 @@ html {
 }
 
 body {
-  background: #ececec;
+  background: rgb(193, 223, 242);
   display: flex;
   flex-direction: column;
   flex-wrap: nowrap;
@@ -38,6 +38,7 @@ body {
   align-items: stretch;
   align-content: center;
   justify-content: flex-start;
+  min-width: 225px;
 }
 
 .header .header-title{
@@ -121,28 +122,39 @@ body {
   -webkit-overflow-scrolling:  touch;
 }
 
-.card{padding: 1rem;position: relative;box-sizing: border-box;background: #fff;margin: 1rem;border-radius: 4px;box-shadow: 0 2px 2px 0 rgba(0,0,0, 0.14), 0 3px 1px -2px rgba(0,0,0,0.2), 0 1px 5px 0 rgba(0,0,0,0.12);}
+.card{padding: 1rem;position: relative;box-sizing: border-box;background: #fff;margin: 1rem;border-radius: 4px;box-shadow: 0 2px 2px 0 rgba(0,0,0, 0.14), 0 3px 1px -2px rgba(0,0,0,0.2), 0 1px 5px 0 rgba(0,0,0,0.12);max-width: 500px;min-width: 225px;}
 
 .card .date{font-size: 1.5rem;padding-bottom: 0.5rem;border-bottom: 1px solid #cecece;}
 
 .card .venue{padding: 0.5rem 0;}
 
-.card .choices{padding: 1rem 0 0;display: flex;flex-direction: row;flex-wrap: nowrap;}
-.choices .score{
-  /* display: inline-block; */
-  /* flex: 1; */
+.card .choices{padding: 1rem 0 0;display: flex;flex-flow: row nowrap;}
+
+.choices .choice{
+  display: flex;
+  flex-flow: column nowrap;
+  flex: 1;
+  /* width: 48px; */
   /* margin: 0 auto; */
+}
+.choices .score{
+  margin: 1rem auto 0;
+  font-weight: bold;
 }
 .choices .score::after{
   content: attr(data-score);
+  /* margin-bottom: 15px; */
 }
 
 .choices .score[data-score='10']::after{
   color: red;
 }
 .choices .icon{
-  width: 2em;
-  height: 2em;
+  width: 3em;
+  height: 3em;
+  margin: 0 auto;
+  border-radius: 50%;
+  box-shadow: 2px 2px 3px 0 rgba(68, 68, 68, 0.55);
 }
 .choices .yes-icon{
   background: url(../images/yes-32.png);
@@ -152,3 +164,14 @@ body {
 }
 .choices .maybe-icon{
   background: url(../images/maybe-32.png);
+}
+
+.footer .attributions{
+  font-size: 0.7rem;
+  color: rgb(97, 97, 97);
+  margin: 15px 15px 5px;
+  font-style: italic;
+}
+
+.footer .attributions a{
+  color: #4f6ac3
