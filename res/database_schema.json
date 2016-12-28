@@ -1,0 +1,72 @@
+
+{
+  "games": {
+    "game-1":{
+      "title": "Christmas Cup!",
+      "datetime": 1482907066599,
+      "venue": "Kingsbury Elementary School, Redlands",
+      "responses": {
+        "user-1": "yes",
+        "user-2": "yes",
+        "user-3": "no",
+        "user-4": "maybe"
+      }
+    }
+
+  },
+
+  "user-responses": {
+    "user-1": {
+      "game-1": "yes",
+      "game-1": "no"
+    },
+    "user-2": {
+      "game-1": "yes"
+    },
+    "user-3": {
+      "game-1": "no"
+    },
+    "user-4": {
+      "game-1": "maybe"
+    }
+  },
+
+ "comments": {
+    "game-1": {
+      "systemkey-1": {
+        "userid": "user-1",
+        "comment": "no comments!",
+        "timestamp": 12334435
+      },
+      "systemkey-2": {
+        "userid": "user-2",
+        "comment": "Yay we won!",
+        "timestamp": 12334435
+      },
+      "systemkey-3": {
+        "userid": "user-3",
+        "comment": "no comments!",
+        "timestamp": 12334435
+      }
+    }
+  },
+
+  "users": {
+    "user-1": {
+      "username": "Abc",
+      "picUrl": "https://ajkjdaf.com/my.png",
+      "email": "myemail@example.com"
+    },
+    "user-2": {
+      "username": "xyz",
+      "picUrl": "https://ajkjdaf.com/my.png",
+      "email": "myemail@example.com"
+    },
+    "user-3": {
+      "username": "sfdg",
+      "picUrl": "https://ajkjdaf.com/my.png",
+      "email": "myemail@example.com"
+    }
+  }
+
+}
