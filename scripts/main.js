@@ -2,22 +2,25 @@
 (function(){
   'use strict';
 
-  var app = {
-    isResponded: false,
-    userInfo: {},
+  //************************************
+  // App Constructor
+  //************************************
+
+  let app = {
     spinner: document.querySelector('.loader'),
-    eventTemplate: document.querySelector('.eventTemplate'),
-    container: document.querySelector('.main'),
+    gamesContainer: document.querySelector('.main'),
     userPic: document.querySelector('.user-pic'),
     signInBtn: document.querySelector('.sign-in'),
     signOutBtn: document.querySelector('.sign-out'),
     title: document.querySelector('.header-title'),
-    dropdown: document.querySelector('.dropdown'),
-    auth: null,
-    database: null
-  }
+    gamesRef: null
+  };
 
-  // inititialize Firebase
+
+  //************************************
+  // Firebase Initialization
+  //************************************
+
   app.initFirebase = function(){
     //check setup
     if(!window.firebase || !(firebase.app instanceof Function)){
@@ -26,32 +29,47 @@
       return;
     }
 
+    const config = {
+      apiKey: "AIzaSyA4s5WAv0Zv00VZrQhEXMDImwiWsSpYMBw",
+      authDomain: "letsplay-a07f7.firebaseapp.com",
+      databaseURL: "https://letsplay-a07f7.firebaseio.com",
+      storageBucket: "letsplay-a07f7.appspot.com",
+      messagingSenderId: "40702620919"
+    };
+    firebase.initializeApp(config);
+
     app.auth = firebase.auth();
-    app.database = firebase.database();
-
     app.auth.onAuthStateChanged(app.onAuthStateChangedListner);
-  }
+  };
 
+
+  //************************************
+  // Authentication and Sign-In
+  //************************************
+
+  //User sign-in status change listener
   app.onAuthStateChangedListner = function(user){
     if(user) { //user is signed in
-      //get user's profile pic and name
-      //app.userName.textContent = user.displayName;
-      //get user's first name
-      var displayName = user.displayName;
-      var firstName = displayName.slice(0, displayName.lastIndexOf(' '));
+      console.log(`user ${user.displayName} logged in`);
+      //slice user's last name
+      let firstName = user.displayName.slice(0, user.displayName.lastIndexOf(' '));
+
+      //update the Header
       app.title.textContent = "Let's Play " + firstName;
-
       app.userPic.style.backgroundImage = 'url(' + user.photoURL + ')';
-
-      //app.userName.removeAttribute('hidden');
       app.userPic.removeAttribute('hidden');
-
       app.signInBtn.setAttribute('hidden', 'true');
 
-      app.initEventCard(dumyEventData);
+      app.getDBRefs();
+
+      //load games data
+      app.loadGamesData();
 
     } else { //user is signed out
       // app.userName.setAttribute('hidden', 'true');
+      console.log(`user ${user.displayName} logged out`);
+
+      //update Header
       app.title.textContent = "Let's Play";
       app.userPic.setAttribute('hidden', 'true');
 
@@ -59,142 +77,100 @@
     }
   };
 
-  /** UI event listeners **/
+
+  //************************************
+  // Sign-in controller methods
+  //************************************
+
+  //Sign-in handler
   app.signInBtn.addEventListener('click', function(){
     //sign into firebase using google authentication
-    var provider = new firebase.auth.GoogleAuthProvider();
-    app.auth.signInWithRedirect(provider);
-  });
-
-  app.userPic.addEventListener('click', function() {
-    app.dropdown.classList.toggle('show');
+    let provider = new firebase.auth.GoogleAuthProvider();
+    app.auth.signInWithPopup(provider);
   });
 
 
-  app.signOutBtn.addEventListener('click', function() {
-    app.auth.signOut();
-  });
+  //************************************
+  // Main UI controller methods
+  //************************************
 
-  /** UI controller methods **/
-  app.initEventCard = function(data){
-    data.forEach(function(eventData){
-      var eventDate = new Date(eventData.datetime);
-      var yesCount = eventData.responses.yes.length;
-      var noCount = eventData.responses.no.length;
-      var maybeCount = eventData.responses.maybe.length;
+  app.addUpdateGameCard = function(key, data){
+    //Get the card by gameid if its already been added
+    let gameCard = app.gamesContainer.querySelector('#' + key);
+    if(!gameCard){ // create new Card
 
-      //initialize a new event card
-      var eventCard = app.eventTemplate.cloneNode(true);
-      eventCard.classList.remove('eventTemplate');
-      eventCard.removeAttribute('hidden');
-      //set data
-      eventCard.dataset.eventid = eventData.eventid;
-      eventCard.querySelector('.date').textContent = formatDate(eventDate);
-      eventCard.querySelector('.venue').textContent = eventData.venue;
-      eventCard.querySelector('.choices .yes .score').dataset.score = yesCount;
-      eventCard.querySelector('.choices .no .score').dataset.score = noCount;
-      eventCard.querySelector('.choices .maybe .score').dataset.score = maybeCount;
+      /* DEV NOTES - way to create node from HTML string so that appendChild can be used.
+                   created a temp div and incerted HTML string. then get the node
+                   by calling firstChild(); */
 
-      //attach event listners only if event is in future
-      //responses can be made upto midnight of match day
-      var deadline = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
-      if(Date.now() > deadline){
-        eventCard.querySelector('.choices .yes .icon input[type=radio]').addEventListener('change', function(e){
-          console.log("yes+ 1");
-        });
-        eventCard.querySelector('.choices .no .icon input[type=radio]').addEventListener('change', function(e){
-          console.log("no +1");
-        });
-        eventCard.querySelector('.choices .maybe .icon input[type=radio]').addEventListener('change', function(e){
-          console.log("maybe +1");
-        });
-      }
-      app.container.appendChild(eventCard);
-    })
-  }
+      var temp = document.createElement('div');
+      temp.innerHTML = generateCard(key, data);
+      app.gamesContainer.insertBefore(temp.firstChild, app.gamesContainer.firstChild);
+
+    } else { //update the existing card
+      gameCard.querySelector('.game-title').textContent = data.title;
+      gameCard.querySelector('.game-date').textContent = formatDate(data.datetime);
+      gameCard.querySelector('.game-venue').textContent = data.venue;
+    };
+
+  };
 
 
-  /** Methods to deal with model **/
+  //************************************
+  // Methods to deal with model
+  //************************************
+
+  //attach refs
+  app.getDBRefs = function(){
+    //init database refs
+    //TODO - only load future games? TBD
+    app.gamesRef = firebase.database().ref().child('games');
+    app.gamesRef.off();
+  };
+
+  //load games data
+  app.loadGamesData = function() {
+    //load games data and attach child add and update listners
+    app.gamesRef.on('child_added', snap => {
+      console.log(`adding ${snap.key}`);
+      app.addUpdateGameCard(snap.key, snap.val());
+
+    });
+
+    app.gamesRef.on('child_changed', snap => {
+      console.log(`changed ${snap.key}`);
+      app.addUpdateGameCard(snap.key, snap.val());
+    });
+
+  };
 
 
+  //************************************
+  // App Startup
+  //************************************
+
+  window.onload = () =>{
+    app.initFirebase();
+  };
 
 
-  var dumyEventData = [{
-    eventid: 1234,
-    status: "upcoming",
-    datetime: "2016-07-22T01:00:00Z",
-    venue: "Kingsburry Elimentary School, Redlands",
-    responses: {
-      yes: [{
-        userid: 101,
-        name: "ABC",
-        email: "abc@gmail.com"
-      }, {
-        userid: 102,
-        name: "ABC",
-        email: "abc@gmail.com"
-      }, {
-        userid: 103,
-        name: "ABC",
-        email: "abc@gmail.com"
-      }],
-      no: [{
-        userid: 104,
-        name: "ABC",
-        email: "abc@gmail.com"
-      }, {
-        userid: 105,
-        name: "ABC",
-        email: "abc@gmail.com"
-      }],
-      maybe: [{
-        userid: 106,
-        name: "ABC",
-        email: "abc@gmail.com"
-      }]
-    }
-  }, {
-    eventid: 4321,
-    status: "upcoming",
-    datetime: "2016-12-28T15:30:00.000Z",
-    venue: "Kingsburry Elimentary School, Redlands",
-    responses: {
-      yes: [{
-        userid: 101,
-        name: "ABC",
-        email: "abc@gmail.com"
-      }, {
-        userid: 102,
-        name: "ABC",
-        email: "abc@gmail.com"
-      }, {
-        userid: 103,
-        name: "ABC",
-        email: "abc@gmail.com"
-      }],
-      no: [{
-        userid: 104,
-        name: "ABC",
-        email: "abc@gmail.com"
-      }, {
-        userid: 105,
-        name: "ABC",
-        email: "abc@gmail.com"
-      }],
-      maybe: [{
-        userid: 106,
-        name: "ABC",
-        email: "abc@gmail.com"
-      }]
-    }
-  }]
+  //************************************
+  // Private Utility Functions
+  //************************************
 
-  //app.initEventCard(dumyEventData);
-  app.initFirebase();
+  //Card template
+  function generateCard(key, data){
+     return `<div class="game-card" id="${key}">
+              <div class="game-title">${data.title}</div>
+              <div class="game-date">${formatDate(data.datetime)}</div>
+              <div class="game-venue">${data.venue}</div>
+            </div>`;
+  };
 
-  function formatDate(date){
+  function formatDate(input){
+    let date = new Date(input);
     if(!date && !(date instanceof Date)) return "";
-    var options = {
+    let options = {
       "weekday": "short",
       "day": "2-digit",
       "month": "short",
@@ -202,5 +178,6 @@
       "minute":"2-digit"
     };
     return date.toLocaleString('en-US', options);
-  }
+  };
+
 })()
