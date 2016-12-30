@@ -13,7 +13,8 @@
     signInBtn: document.querySelector('.sign-in'),
     signOutBtn: document.querySelector('.sign-out'),
     title: document.querySelector('.header-title'),
-    gamesRef: null
+    gamesRef: null,
+    gameResponsesRef: null
   };
 
 
@@ -99,13 +100,17 @@
     let gameCard = app.gamesContainer.querySelector('#' + key);
     if(!gameCard){ // create new Card
 
-      /* DEV NOTES - way to create node from HTML string so that appendChild can be used.
-                   created a temp div and incerted HTML string. then get the node
-                   by calling firstChild(); */
+      gameCard = generateCard(key, data);
 
-      var temp = document.createElement('div');
-      temp.innerHTML = generateCard(key, data);
-      app.gamesContainer.insertBefore(temp.firstChild, app.gamesContainer.firstChild);
+      //insert the choice buttons if game is in future
+      let gameDate = new Date(data.datetime);
+      if(gameDate > Date.now()){
+        gameCard.appendChild(choicesTemplate(key));
+      };
+
+      app.gamesContainer.insertBefore(gameCard, app.gamesContainer.firstChild);
+
+      app.loadResponsesData(key);
 
     } else { //update the existing card
       gameCard.querySelector('.game-title').textContent = data.title;
@@ -115,6 +120,18 @@
 
   };
 
+  app.addUpdateResponse = function(gameid, uid, udata, resType){
+
+  };
+
+  app.onChoiceSelected = function(e){
+    if(e.target && e.target.classList.contains('choice')){
+      let gameid = e.target.parentNode.dataset.gameid;
+      let choice = e.target.dataset.choice;
+      if(!gameid || !choice) return; //TODO - show error message
+      app.registerResponse(gameid, choice);
+    }
+  };
 
   //************************************
   // Methods to deal with model
@@ -126,6 +143,8 @@
     //TODO - only load future games? TBD
     app.gamesRef = firebase.database().ref().child('games');
     app.gamesRef.off();
+    app.gameResponsesRef = firebase.database().ref().child('responses');
+    app.gameResponsesRef.off();
   };
 
   //load games data
@@ -144,6 +163,32 @@
 
   };
 
+  app.loadResponsesData = function(gameid, resType = 'yes'){
+    app.gameResponsesRef.child(gameid).equalTo(resType).on('child_added', snap => {
+      console.log(`user ${snap.key} responded ${resType}.`);
+      app.addUpdateResponse(gameid, snap.key, snap.val(), resType);
+    });
+
+    app.gameResponsesRef.child(gameid).on('child_removed', snap => {
+
+    })
+  };
+
+  app.registerResponse = function(gameid, choice){
+    if(!app.auth.currentUser) return; //TODO show message- User need to be signed in.
+
+    let user = app.auth.currentUser;
+    let inData = {};
+    inData[`/${gameid}/${user.uid}`] = {
+      username: user.displayName,
+      userpic: user.photoURL,
+      choice: choice
+    };
+    app.gameResponsesRef.update(inData).then(res => {
+      console.log("response registered.");
+    });
+  };
+
 
   //************************************
   // App Startup
@@ -160,11 +205,41 @@
 
   //Card template
   function generateCard(key, data){
-     return `<div class="game-card" id="${key}">
+    /* DEV NOTES - way to create node from HTML string so that appendChild can be used.
+                 created a temp div and incerted HTML string. then get the node
+                 by calling firstChild(); */
+
+    let temp = document.createElement('div');
+    temp.innerHTML = `<div class="game-card" id="${key}">
               <div class="game-title">${data.title}</div>
               <div class="game-date">${formatDate(data.datetime)}</div>
               <div class="game-venue">${data.venue}</div>
             </div>`;
+
+    return temp.firstChild;
+  };
+
+  //insert these buttons only fo the future games
+  function choicesTemplate(key){
+    let temp = document.createElement('div');
+    temp.innerHTML = `<div class="choices" data-gameid="${key}">
+      <button class="choice choice-yes" data-choice="yes" >Yes</button>
+      <button class="choice choice-no" data-choice="no" >No</button>
+      <button class="choice choice-maybe" data-choice="maybe" >May Be</button>
+    </div>`;
+    let choicesNode = temp.firstChild;
+
+    //event Deligation
+    choicesNode.addEventListener('click', app.onChoiceSelected);
+    // choicesNode.querySelector('.choice-yes').addEventListener('click', app.onChoiceSelected);
+    // choicesNode.querySelector('.choice-no').addEventListener('click', app.onChoiceSelected);
+    // choicesNode.querySelector('.choice-maybe').addEventListener('click', app.onChoiceSelected);
+
+    return choicesNode;
+  };
+
+  function responsesTemplates(key){
+    return ``;
   };
 
   function formatDate(input){
