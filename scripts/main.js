@@ -6,7 +6,7 @@
   // App Constructor
   //************************************
 
-  let app = {
+  const app = {
     spinner: document.querySelector('.loader'),
     gamesContainer: document.querySelector('.main'),
     userPic: document.querySelector('.user-pic'),
@@ -14,7 +14,9 @@
     signOutBtn: document.querySelector('.sign-out'),
     title: document.querySelector('.header-title'),
     gamesRef: null,
-    gameResponsesRef: null
+    gameResponsesRef: null,
+    registry: null,
+    io: null
   };
 
 
@@ -22,7 +24,9 @@
   // Firebase Initialization
   //************************************
 
-  app.initFirebase = function(){
+  app.init = function(){
+    //instanciate WeakMap registry for ref to added game objects
+    app.registry = new Map();
     //check setup
     if(!window.firebase || !(firebase.app instanceof Function)){
       window.alert('Sorry, unable to load required files.');
@@ -61,13 +65,10 @@
       app.userPic.removeAttribute('hidden');
       app.signInBtn.setAttribute('hidden', 'true');
 
-      app.getDBRefs();
-
-      //load games data
-      app.loadGamesData();
+      app.io = new IO();
+      app.io.loadGames(app.addUpdateGameCard);
 
     } else { //user is signed out
-      // app.userName.setAttribute('hidden', 'true');
       console.log(`user ${user.displayName} logged out`);
 
       //update Header
@@ -95,42 +96,31 @@
   // Main UI controller methods
   //************************************
 
-  app.addUpdateGameCard = function(key, data){
-    //Get the card by gameid if its already been added
-    let gameCard = app.gamesContainer.querySelector('#' + key);
-    if(!gameCard){ // create new Card
-
-      gameCard = generateCard(key, data);
-
-      //insert the choice buttons if game is in future
-      let gameDate = new Date(data.datetime);
-      if(gameDate > Date.now()){
-        gameCard.appendChild(choicesTemplate(key));
-      };
-
-      app.gamesContainer.insertBefore(gameCard, app.gamesContainer.firstChild);
-
-      app.loadResponsesData(key);
-
-    } else { //update the existing card
-      gameCard.querySelector('.game-title').textContent = data.title;
-      gameCard.querySelector('.game-date').textContent = formatDate(data.datetime);
-      gameCard.querySelector('.game-venue').textContent = data.venue;
-    };
-
-  };
-
-  app.addUpdateResponse = function(gameid, uid, udata, resType){
-
-  };
-
-  app.onChoiceSelected = function(e){
-    if(e.target && e.target.classList.contains('choice')){
-      let gameid = e.target.parentNode.dataset.gameid;
-      let choice = e.target.dataset.choice;
-      if(!gameid || !choice) return; //TODO - show error message
-      app.registerResponse(gameid, choice);
+  app.addUpdateGameCard = function(data){
+    let gameid = data.gameid, metadata = data.metadata;
+    let game = app.registry.get(gameid);
+    if(!game){
+      game = new Game(gameid);
+      game.addGame(metadata, app.gamesContainer);
+      game.domNode.addEventListener('choiceMade', app.onChoiceMade);
+      //add obj to registry
+      app.registry.set(gameid, game);
+    } else {
+      //game = app.registry.get(key);
+      game.updateGame(metadata);
     }
+  };
+
+  app.onChoiceMade = function(e){
+    console.log(e.detail.gameId + " selected " + e.detail.choice);
+    //call this from IO
+    //app.registerResponse(e.detail.gameId, e.detail.choice);
+    let userInfo = {
+      "uid": app.auth.currentUser.uid,
+      "username": app.auth.currentUser.displayName,
+      "userpic": app.auth.currentUser.photoURL
+    };
+    app.io.registerResponse(e.detail.gameId, userInfo, e.detail.choice );
   };
 
   //************************************
@@ -138,56 +128,56 @@
   //************************************
 
   //attach refs
-  app.getDBRefs = function(){
-    //init database refs
-    //TODO - only load future games? TBD
-    app.gamesRef = firebase.database().ref().child('games');
-    app.gamesRef.off();
-    app.gameResponsesRef = firebase.database().ref().child('responses');
-    app.gameResponsesRef.off();
-  };
+  // app.getDBRefs = function(){
+  //   //init database refs
+  //   //TODO - only load future games? TBD
+  //   app.gamesRef = firebase.database().ref().child('games');
+  //   app.gamesRef.off();
+  //   app.gameResponsesRef = firebase.database().ref().child('responses');
+  //   app.gameResponsesRef.off();
+  // };
 
   //load games data
-  app.loadGamesData = function() {
-    //load games data and attach child add and update listners
-    app.gamesRef.on('child_added', snap => {
-      console.log(`adding ${snap.key}`);
-      app.addUpdateGameCard(snap.key, snap.val());
+  // app.loadGamesData = function() {
+  //   //load games data and attach child add and update listners
+  //   app.gamesRef.on('child_added', snap => {
+  //     console.log(`adding ${snap.key}`);
+  //     app.addUpdateGameCard(snap.key, snap.val());
+  //
+  //   });
+  //
+  //   app.gamesRef.on('child_changed', snap => {
+  //     console.log(`changed ${snap.key}`);
+  //     app.addUpdateGameCard(snap.key, snap.val());
+  //   });
+  //
+  // };
 
-    });
+  // app.loadResponsesData = function(gameid, resType = 'yes'){
+  //   app.gameResponsesRef.child("-K41k2sK1onjbypnb3Y").child().equalTo("yes", "choice").on('value', snap => {
+  //     console.log(`user ${snap.key} responded ${resType}.`);
+  //     //app.addUpdateResponse(gameid, snap.key, snap.val(), resType);
+  //   });
+  //
+  //   app.gameResponsesRef.child(gameid).on('child_removed', snap => {
+  //
+  //   })
+  // };
 
-    app.gamesRef.on('child_changed', snap => {
-      console.log(`changed ${snap.key}`);
-      app.addUpdateGameCard(snap.key, snap.val());
-    });
-
-  };
-
-  app.loadResponsesData = function(gameid, resType = 'yes'){
-    app.gameResponsesRef.child(gameid).equalTo(resType).on('child_added', snap => {
-      console.log(`user ${snap.key} responded ${resType}.`);
-      app.addUpdateResponse(gameid, snap.key, snap.val(), resType);
-    });
-
-    app.gameResponsesRef.child(gameid).on('child_removed', snap => {
-
-    })
-  };
-
-  app.registerResponse = function(gameid, choice){
-    if(!app.auth.currentUser) return; //TODO show message- User need to be signed in.
-
-    let user = app.auth.currentUser;
-    let inData = {};
-    inData[`/${gameid}/${user.uid}`] = {
-      username: user.displayName,
-      userpic: user.photoURL,
-      choice: choice
-    };
-    app.gameResponsesRef.update(inData).then(res => {
-      console.log("response registered.");
-    });
-  };
+  // app.registerResponse = function(gameid, choice){
+  //   if(!app.auth.currentUser) return; //TODO show message- User need to be signed in.
+  //
+  //   let user = app.auth.currentUser;
+  //   let inData = {};
+  //   inData[`/${gameid}/${user.uid}`] = {
+  //     username: user.displayName,
+  //     userpic: user.photoURL,
+  //     choice: choice
+  //   };
+  //   app.gameResponsesRef.update(inData).then(res => {
+  //     console.log("response registered.");
+  //   });
+  // };
 
 
   //************************************
@@ -195,7 +185,7 @@
   //************************************
 
   window.onload = () =>{
-    app.initFirebase();
+    app.init();
   };
 
 
@@ -203,56 +193,52 @@
   // Private Utility Functions
   //************************************
 
-  //Card template
-  function generateCard(key, data){
-    /* DEV NOTES - way to create node from HTML string so that appendChild can be used.
-                 created a temp div and incerted HTML string. then get the node
-                 by calling firstChild(); */
+  // //Card template
+  // function generateCard(key, data){
+  //   /* DEV NOTES - way to create node from HTML string so that appendChild can be used.
+  //                created a temp div and incerted HTML string. then get the node
+  //                by calling firstChild(); */
+  //
+  //   let temp = document.createElement('div');
+  //   temp.innerHTML = `<div class="game-card" id="${key}">
+  //             <div class="game-title">${data.title}</div>
+  //             <div class="game-date">${formatDate(data.datetime)}</div>
+  //             <div class="game-venue">${data.venue}</div>
+  //           </div>`;
+  //
+  //   return temp.firstChild;
+  // };
 
-    let temp = document.createElement('div');
-    temp.innerHTML = `<div class="game-card" id="${key}">
-              <div class="game-title">${data.title}</div>
-              <div class="game-date">${formatDate(data.datetime)}</div>
-              <div class="game-venue">${data.venue}</div>
-            </div>`;
+  // //insert these buttons only fo the future games
+  // function choicesTemplate(key){
+  //   let temp = document.createElement('div');
+  //   temp.innerHTML = `<div class="choices" data-gameid="${key}">
+  //     <button class="choice choice-yes" data-choice="yes" >Yes</button>
+  //     <button class="choice choice-no" data-choice="no" >No</button>
+  //     <button class="choice choice-maybe" data-choice="maybe" >May Be</button>
+  //   </div>`;
+  //   let choicesNode = temp.firstChild;
+  //
+  //   //event Deligation
+  //   choicesNode.addEventListener('click', app.onChoiceSelected);
+  //   // choicesNode.querySelector('.choice-yes').addEventListener('click', app.onChoiceSelected);
+  //   // choicesNode.querySelector('.choice-no').addEventListener('click', app.onChoiceSelected);
+  //   // choicesNode.querySelector('.choice-maybe').addEventListener('click', app.onChoiceSelected);
+  //
+  //   return choicesNode;
+  // };
 
-    return temp.firstChild;
-  };
-
-  //insert these buttons only fo the future games
-  function choicesTemplate(key){
-    let temp = document.createElement('div');
-    temp.innerHTML = `<div class="choices" data-gameid="${key}">
-      <button class="choice choice-yes" data-choice="yes" >Yes</button>
-      <button class="choice choice-no" data-choice="no" >No</button>
-      <button class="choice choice-maybe" data-choice="maybe" >May Be</button>
-    </div>`;
-    let choicesNode = temp.firstChild;
-
-    //event Deligation
-    choicesNode.addEventListener('click', app.onChoiceSelected);
-    // choicesNode.querySelector('.choice-yes').addEventListener('click', app.onChoiceSelected);
-    // choicesNode.querySelector('.choice-no').addEventListener('click', app.onChoiceSelected);
-    // choicesNode.querySelector('.choice-maybe').addEventListener('click', app.onChoiceSelected);
-
-    return choicesNode;
-  };
-
-  function responsesTemplates(key){
-    return ``;
-  };
-
-  function formatDate(input){
-    let date = new Date(input);
-    if(!date && !(date instanceof Date)) return "";
-    let options = {
-      "weekday": "short",
-      "day": "2-digit",
-      "month": "short",
-      "hour":"2-digit",
-      "minute":"2-digit"
-    };
-    return date.toLocaleString('en-US', options);
-  };
+  // function formatDate(input){
+  //   let date = new Date(input);
+  //   if(!date && !(date instanceof Date)) return "";
+  //   let options = {
+  //     "weekday": "short",
+  //     "day": "2-digit",
+  //     "month": "short",
+  //     "hour":"2-digit",
+  //     "minute":"2-digit"
+  //   };
+  //   return date.toLocaleString('en-US', options);
+  // };
 
 })()
