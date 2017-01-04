@@ -11,7 +11,7 @@
     gamesContainer: document.querySelector('.main'),
     userPic: document.querySelector('.user-pic'),
     signInBtn: document.querySelector('.sign-in'),
-    signOutBtn: document.querySelector('.sign-out'),
+    signOutBtn: document.querySelector('#signOut'),
     title: document.querySelector('.header-title'),
     gamesRef: null,
     gameResponsesRef: null,
@@ -42,6 +42,7 @@
       messagingSenderId: "40702620919"
     };
     firebase.initializeApp(config);
+    IO.initialize();
 
     app.auth = firebase.auth();
     app.auth.onAuthStateChanged(app.onAuthStateChangedListner);
@@ -65,8 +66,8 @@
       app.userPic.removeAttribute('hidden');
       app.signInBtn.setAttribute('hidden', 'true');
 
-      app.io = new IO();
-      app.io.loadGames(app.addUpdateGameCard);
+
+      IO.loadGames(app.addUpdateGameCard);
 
     } else { //user is signed out
       console.log(`user ${user.displayName} logged out`);
@@ -89,6 +90,10 @@
     //sign into firebase using google authentication
     let provider = new firebase.auth.GoogleAuthProvider();
     app.auth.signInWithPopup(provider);
+  });
+
+  app.signOutBtn.addEventListener('click', function(){
+    app.auth.signOut();
   });
 
 
@@ -120,7 +125,7 @@
       "username": app.auth.currentUser.displayName,
       "userpic": app.auth.currentUser.photoURL
     };
-    app.io.registerResponse(e.detail.gameId, userInfo, e.detail.choice );
+    IO.registerResponse(e.detail.gameId, userInfo, e.detail.choice );
   };
 
   //************************************

@@ -12,7 +12,7 @@ class Game {
 
   addGame(data, container) {
     //if DomNode exists call update()
-    if(this.domNode) {this.update(data); return};
+    if(this.domNode) {this.updateGame(data); return};
     if(!container) throw new Error('container not specified');
     this._checkIsAlive(data.datetime);
 
@@ -35,13 +35,14 @@ class Game {
     //insert the responses if game is in future
     if(this.isAlive){
         this.domNode.appendChild(this._responsesTemplate());
+        //var io = new IO();
+        IO.loadResponses(this.gameid, this.updateResponse.bind(this));
     };
     //upgrade elements for MDL
     componentHandler.upgradeElement(this.domNode);
     container.insertBefore(this.domNode, container.firstChild);
 
-    var io = new IO();
-    io.loadResponses(this.gameid, this.updateResponse);
+
 
   };
 
@@ -67,18 +68,59 @@ class Game {
   updateResponse(data){
     let userid = data.userid, info = data.metadata;
     if(!userid || !data) return;
-    //create response tag
 
-  };
 
-  updateScore(choice, add = true){
-
-    let node = this.domNode.querySelector('.score-'+choice);
-    if(node){
-      add ? ++node.dataset.badge : --node.dataset.badge;
+    //check if user chip already present
+    let chip = this.domNode.querySelector('.response-container span[data-uid="'+ userid +'"].response-item');
+    if(!chip){
+      //create new chip
+      let resNode = document.createElement('span');
+      resNode.className = "response-item mdl-chip mdl-chip-contact";
+      resNode.dataset.uid = userid;
+      let avatar = new Image(40,40);
+      avatar.src = info.userpic || "/images/profile_placeholder.png";
+      avatar.className = "avatar mdl-chip__contact";
+      resNode.appendChild(avatar);
+      let name = document.createElement('span');
+      name.className = "mdl-chip__text user-name";
+      name.textContent = info.username;
+      resNode.appendChild(name);
+      chip = resNode;
+    }
+    //insert / move chip to target tab
+    let targetTabId = this.gameid + '-' + info.choice;
+    let targetTabNode = this.domNode.querySelector('#'+targetTabId);
+    if(targetTabNode){
+      targetTabNode.appendChild(chip);
+      this.updateScore();
     }
 
+    //select the choice for current user
+    if(userid === firebase.auth().currentUser.uid){
+      this._updateUIOnChoiceChange(info.choice);
+    }
   };
+
+  updateScore(){
+
+    let choices = ["yes", "no", "maybe"];
+    choices.forEach(choice => {
+      //update yes score
+      let tabNode = this.domNode.querySelector('#'+ this.gameid + "-" + choice);
+      let score = tabNode.hasChildNodes() ? tabNode.childNodes.length : 0;
+      let node = this.domNode.querySelector('.score-' + choice);
+      node.dataset.badge = score;
+    });
+  };
+
+  // updateScore(choice, add = true){
+  //
+  //   let node = this.domNode.querySelector('.score-'+choice);
+  //   if(node){
+  //     add ? ++node.dataset.badge : --node.dataset.badge;
+  //   }
+  //
+  // };
 
   //insert these buttons only fo the future games
   _choicesTemplate(){
@@ -86,11 +128,11 @@ class Game {
     const mdl_Classes = 'mdl-button mdl-js-button mdl-button--fab mdl-js-ripple-effect mdl-button--colored ';
     temp.innerHTML = `<div class="choices mdl-card__actions" >
       <button class="choice choice-yes `+ mdl_Classes +`" data-choice="yes" `+ ((this.isAlive) ? '' : 'disabled') +` ><i class="choice-icon material-icons">thumb_up</i></button>
-      <div class="score score-yes mdl-badge mdl-badge--overlap" data-badge="12"></div>
+      <div class="score score-yes mdl-badge mdl-badge--overlap" data-badge="0"></div>
       <button class="choice choice-no `+ mdl_Classes +`" data-choice="no" `+ ((this.isAlive) ? '' : 'disabled') +` ><i class="choice-icon material-icons">thumb_down</i></button>
-      <div class="score score-no mdl-badge mdl-badge--overlap" data-badge="2"></div>
+      <div class="score score-no mdl-badge mdl-badge--overlap" data-badge="0"></div>
       <button class="choice choice-maybe `+ mdl_Classes +`" data-choice="maybe" `+ ((this.isAlive) ? '' : 'disabled') +` ><i class="choice-icon material-icons">thumbs_up_down</i></button>
-      <div class="score score-maybe mdl-badge mdl-badge--overlap" data-badge="1"></div>
+      <div class="score score-maybe mdl-badge mdl-badge--overlap" data-badge="0"></div>
     </div>`;
     let choicesNode = temp.firstChild;
 
@@ -105,15 +147,15 @@ class Game {
   _responsesTemplate(){
     let temp = document.createElement('div');
     const mdl_Classes = '';
-    temp.innerHTML = `<div class="mdl-tabs mdl-js-tabs mdl-js-ripple-effect" >
+    temp.innerHTML = `<div class="response-container mdl-tabs mdl-js-tabs mdl-js-ripple-effect" >
       <div class="response-tab-bar mdl-tabs__tab-bar">
-        <div><a href="#${this.gameid}-yes" class="response-tab-in mdl-tabs__tab " >IN</a></div>
+        <div><a href="#${this.gameid}-yes" class="response-tab-in mdl-tabs__tab is-active" >IN</a></div>
         <div><a href="#${this.gameid}-no" class="response-tab-out mdl-tabs__tab ">OUT</a></div>
         <div><a href="#${this.gameid}-maybe" class="mdl-tabs__tab">MAY BE</a></div>
       </div>
-      <div id="${this.gameid}-yes" class="mdl-tabs__panel ">dfgdf</div>
-      <div id="${this.gameid}-no" class="mdl-tabs__panel ">sdfg</div>
-      <div id="${this.gameid}-maybe" class="mdl-tabs__panel">dsfh</div>
+      <div id="${this.gameid}-yes" class="tab-panel mdl-tabs__panel is-active"></div>
+      <div id="${this.gameid}-no" class="tab-panel mdl-tabs__panel "></div>
+      <div id="${this.gameid}-maybe" class="tab-panel mdl-tabs__panel"></div>
     </div>`;
     let responsesNode = temp.firstChild;
     componentHandler.upgradeElement(responsesNode);
@@ -130,7 +172,7 @@ class Game {
       //bail out if the same choice is clicked a
       if(choice === this.selectedChoice) return;
 
-      this._updateUIOnChoiceChange(choice);
+      //this._updateUIOnChoiceChange(choice);
 
       //raise an event
       var event = new CustomEvent('choiceMade', {'detail': { "gameId": gameid, "choice": choice}});
@@ -146,11 +188,11 @@ class Game {
     //remove selected class
     this.domNode.querySelectorAll('.choices .selected').forEach((node) => {
       node.classList.remove('selected'); //remove selection
-      this.updateScore(node.dataset.choice, false); //decrease count
+      //this.updateScore(node.dataset.choice, false); //decrease count
     });
     let newNode = this.domNode.querySelector('.choice-'+newChoice);
     newNode.classList.add('selected'); //add selected class to the new choice
-    this.updateScore(newChoice); //increment the score
+    //this.updateScore(newChoice); //increment the score
   };
 
   _checkIsAlive(date){
@@ -164,7 +206,7 @@ class Game {
 }
 
 class IO {
-  constructor(){
+  static initialize(){
     //init database refs
     //TODO - only load future games? TBD
     this.gamesRef = firebase.database().ref().child('games');
@@ -173,7 +215,7 @@ class IO {
     this.gameResponsesRef.off();
   };
 
-  loadGames(callback){
+  static loadGames(callback){
     //load games data and attach child add and update listners
     this.gamesRef.on('child_added', snap => {
       console.log(`adding ${snap.key}`);
@@ -192,7 +234,7 @@ class IO {
     });
   };
 
-  loadResponses(gameid, callback){
+  static loadResponses(gameid, callback){
     if(!gameid) throw new Error("Invalid parameters");
     //need to load
     this.gameResponsesRef.child(gameid).on('child_added', snap => {
@@ -210,7 +252,7 @@ class IO {
     });
   };
 
-  registerResponse(gameid, userinfo, choice, callback){
+  static registerResponse(gameid, userinfo, choice, callback){
     let inData = {};
     inData[`/${gameid}/${userinfo.uid}`] = {
       username: userinfo.username,
@@ -236,14 +278,14 @@ class IO {
 
 class Util {
   static formatedDateString(inDate){
-    if(!inDate) return "";
-    let date;
+    if(!inDate) return;
+    let date = null;
     if(!(inDate instanceof Date)){
       date = new Date(inDate);
     } else {
       date = inDate;
-    }
-    if(!date) return "";
+    };
+    if(!date) return;
     let optionsDate = {
       "weekday": "short",
       "day": "2-digit",
@@ -256,18 +298,19 @@ class Util {
 
   static formatedTimeString(inDate){
     if(!inDate) return "";
-    let date;
+    let date = null;
     if(!(inDate instanceof Date)){
       date = new Date(inDate);
     } else {
       date = inDate;
-    }
-    if(!date) return "";
+    };
+    if(!date) return;
 
     let optionsTime = {
       "hour":"2-digit",
       "minute":"2-digit"
     };
     return date.toLocaleString('en-US', optionsTime);
-  }
+  };
+
 }

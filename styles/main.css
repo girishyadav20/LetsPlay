@@ -20,7 +20,7 @@
 .main .game-card{
   margin: 1.5em auto;
   font-family: "Roboto", "Helvetica", "Arial", sans-serif;
-
+  background: #F5F5F5;
 }
 
 .main .game-card .game-title{
@@ -49,7 +49,7 @@
 }
 .game-card .choices .score:after{
   background: #FFB300;
-  /* color: rgba(0,0,0,0.5); */
+  color: rgba(0,0,0,0.5);
 }
 
 .game-card .choices .choice.selected{
@@ -66,4 +66,15 @@
 }
 .game-card .response-tab-in{
   margin-left: 8px;
+}
+
+.user-name{
+  text-transform: capitalize;
+}
+
+.game-card .response-container .tab-panel{
+  padding: 16px;
+}
+.game-card .response-container .response-item{
+  padding: 0 12px 0 0;
 }
