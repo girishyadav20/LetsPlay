@@ -31,20 +31,36 @@ class Game {
     let temp = document.createElement('div');
     temp.innerHTML = template;
     this.domNode = temp.firstChild;
-    this.domNode.appendChild(this._choicesTemplate());
-    //insert the responses if game is in future
-    if(this.isAlive){
-        this.domNode.appendChild(this._responsesTemplate());
-        //var io = new IO();
-        IO.loadResponses(this.gameid, this.updateResponse.bind(this));
-    };
     //upgrade elements for MDL
     componentHandler.upgradeElement(this.domNode);
     container.insertBefore(this.domNode, container.firstChild);
-
-
-
   };
+
+  showAll(isShowAll=true){
+    if(!this.domNode) return;
+    let choicesNode = this.domNode.querySelector('.choices');
+    let responsesNode = this.domNode.querySelector('.response-container');
+
+    if(isShowAll){
+      if(choicesNode){
+        choicesNode.removeAttribute('hidden');
+      } else {
+        this.domNode.appendChild(this._choicesTemplate());
+      };
+
+      if(responsesNode){
+        responsesNode.removeAttribute('hidden');
+      } else {
+        //nsert the responses if game is in future
+        this.domNode.appendChild(this._responsesTemplate());
+        IO.loadResponses(this.gameid, this.updateResponse.bind(this));
+      };
+
+    } else {
+      choicesNode && choicesNode.setAttribute('hidden', 'true');
+      responsesNode && responsesNode.setAttribute('hidden', 'true');
+    }
+  }
 
   updateGame(newData) {
     if(!this.domNode) throw new Error('dom node not found.');
@@ -54,20 +70,11 @@ class Game {
     this.domNode.querySelector('.game-date').textContent = Util.formatedDateString(newData.datetime);
     this.domNode.querySelector('.game-time').textContent = Util.formatedTimeString(newData.datetime);
     this.domNode.querySelector('.game-venue').textContent = newData.venue;
-
-    //insert the choice buttons if game is in future
-    //let choiceNode = this.domNode.querySelector('.choices');
-    //if(this.isAlive){
-    //  if(!choiceNode) this.domNode.appendChild(this._choicesTemplate());
-
-    // } else {//remove it
-    //   if(choiceNode) choiceNode.remove();
-    // }
   };
 
   updateResponse(data){
-    let userid = data.userid, info = data.metadata;
-    if(!userid || !data) return;
+    let userid = data.userid, info = data.userinfo, choice = data.choice ;
+    if(!userid || !info) return;
 
 
     //check if user chip already present
@@ -88,7 +95,7 @@ class Game {
       chip = resNode;
     }
     //insert / move chip to target tab
-    let targetTabId = this.gameid + '-' + info.choice;
+    let targetTabId = this.gameid + '-' + choice;
     let targetTabNode = this.domNode.querySelector('#'+targetTabId);
     if(targetTabNode){
       targetTabNode.appendChild(chip);
@@ -97,7 +104,7 @@ class Game {
 
     //select the choice for current user
     if(userid === firebase.auth().currentUser.uid){
-      this._updateUIOnChoiceChange(info.choice);
+      this._updateUIOnChoiceChange(choice);
     }
   };
 
@@ -112,15 +119,6 @@ class Game {
       node.dataset.badge = score;
     });
   };
-
-  // updateScore(choice, add = true){
-  //
-  //   let node = this.domNode.querySelector('.score-'+choice);
-  //   if(node){
-  //     add ? ++node.dataset.badge : --node.dataset.badge;
-  //   }
-  //
-  // };
 
   //insert these buttons only fo the future games
   _choicesTemplate(){
@@ -153,7 +151,7 @@ class Game {
         <div><a href="#${this.gameid}-no" class="response-tab-out mdl-tabs__tab ">OUT</a></div>
         <div><a href="#${this.gameid}-maybe" class="mdl-tabs__tab">MAY BE</a></div>
       </div>
-      <div id="${this.gameid}-yes" class="tab-panel mdl-tabs__panel is-active"></div>
+      <div id="${this.gameid}-yes" class="tab-panel mdl-tabs__panel is-active" data-placeholder="Be the first to reply."></div>
       <div id="${this.gameid}-no" class="tab-panel mdl-tabs__panel "></div>
       <div id="${this.gameid}-maybe" class="tab-panel mdl-tabs__panel"></div>
     </div>`;
@@ -171,8 +169,6 @@ class Game {
 
       //bail out if the same choice is clicked a
       if(choice === this.selectedChoice) return;
-
-      //this._updateUIOnChoiceChange(choice);
 
       //raise an event
       var event = new CustomEvent('choiceMade', {'detail': { "gameId": gameid, "choice": choice}});
@@ -202,8 +198,9 @@ class Game {
       this.isAlive = true;
   };
 
-
 }
+
+
 
 class IO {
   static initialize(){
@@ -213,6 +210,26 @@ class IO {
     this.gamesRef.off();
     this.gameResponsesRef = firebase.database().ref().child('responses');
     this.gameResponsesRef.off();
+    this.usersRef = firebase.database().ref().child('users');
+  };
+
+  static registerUser(userinfo){
+    this.getUserInfo(userinfo.uid)
+      .then(snap => {
+        if(snap.exists()) return;
+        let inData = {};
+        inData[`/${userinfo.uid}`] = {
+          username: userinfo.username,
+          userpic: userinfo.userpic
+        };
+        this.usersRef.update(inData).then(() => console.log('user registered.'));
+
+      });
+
+  };
+
+  static getUserInfo(uid){
+    return this.usersRef.child(uid).once('value');
   };
 
   static loadGames(callback){
@@ -236,42 +253,34 @@ class IO {
 
   static loadResponses(gameid, callback){
     if(!gameid) throw new Error("Invalid parameters");
-    //need to load
     this.gameResponsesRef.child(gameid).on('child_added', snap => {
-      callback({
-        "userid": snap.key,
-        "metadata": snap.val()
+      this.getUserInfo(snap.key).then(userSnap => {
+        callback({
+          "userid": userSnap.key,
+          "userinfo": userSnap.val(),
+          "choice": snap.val()
+        });
       });
     });
 
     this.gameResponsesRef.child(gameid).on('child_changed', snap => {
-      callback({
-        "userid": snap.key,
-        "metadata": snap.val()
+      this.getUserInfo(snap.key).then(userSnap => {
+        callback({
+          "userid": userSnap.key,
+          "userinfo": userSnap.val(),
+          "choice": snap.val()
+        });
       });
     });
   };
 
-  static registerResponse(gameid, userinfo, choice, callback){
-    let inData = {};
-    inData[`/${gameid}/${userinfo.uid}`] = {
-      username: userinfo.username,
-      userpic: userinfo.userpic,
-      choice: choice
-    };
-    this.gameResponsesRef.update(inData).then(res => {
-      console.log("response registered.");
-      if(callback) callback("success");
-    });
-  };
+  static registerResponse(gameid, uid, choice, callback){
 
-  // updateGame(){
-  //   return new Prmise((resolve, reject) => {
-  //     this.gamesRef.on('child_changed', snap => {
-  //       resolve(snap.key, snap.val());
-  //     });
-  //   });
-  // };
+    this.gameResponsesRef.child(`/${gameid}/${uid}`).set(choice)
+      .then(res => {
+        if(callback) callback();
+      });
+  };
 
 }
 

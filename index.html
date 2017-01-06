@@ -44,7 +44,7 @@
           <span class="mdl-layout__title header-title user-name">Let's Play</span>
           <div class="mdl-layout-spacer"></div>
           <nav class="mdl-navigation">
-            <div class="user-menu-wrapper">
+            <div class="user-menu-wrapper" hidden>
               <button id="userMenu" class="mdl-button mdl-js-button mdl-button--icon">
                 <div class="user-pic"></div>
               </button>
@@ -54,12 +54,17 @@
               </ul>
             </div>
 
-            <a class="mdl-navigation__link sign-in" href="#" hidden>Sign In</a>
+            <a class="mdl-navigation__link sign-in" href="#">Sign In With Google</a>
           </nav>
         </div>
       </header>
 
       <main class="main mdl-layout__content"></main>
+
+      <div id="snackbar" class="mdl-js-snackbar mdl-snackbar">
+        <div class="mdl-snackbar__text"></div>
+        <button class="mdl-snackbar__action" type="button"></button>
+      </div>
 
     </div>
 
