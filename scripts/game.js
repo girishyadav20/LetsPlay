@@ -8,6 +8,9 @@ class Game {
     this.domNode = null;
     this.selectedChoice = "";
     this.isAlive = false;
+    this.date = null;
+    this.title = "";
+    this.notify = true;
   };
 
   addGame(data, container) {
@@ -15,10 +18,11 @@ class Game {
     if(this.domNode) {this.updateGame(data); return};
     if(!container) throw new Error('container not specified');
     this._checkIsAlive(data.datetime);
-
+    this.title = data.title;
     let template = `<div class="game-card mdl-card mdl-shadow--6dp">
               <div class="mdl-card__title mdl-card--border">
                 <h3 class="game-title mdl-card__title-text">${data.title}</h3>
+                <span class="new-game-tag" ` + (this.isAlive ? '' : 'hidden') + `>New</span>
               </div>
               <div class=" mdl-card__supporting-text mdl-card--border">
                 <div class="game-date">${Util.formatedDateString(data.datetime)}</div>
@@ -34,6 +38,8 @@ class Game {
     //upgrade elements for MDL
     componentHandler.upgradeElement(this.domNode);
     container.insertBefore(this.domNode, container.firstChild);
+
+
   };
 
   showAll(isShowAll=true){
@@ -51,10 +57,11 @@ class Game {
       if(responsesNode){
         responsesNode.removeAttribute('hidden');
       } else {
-        //nsert the responses if game is in future
+        //insert the responses if game is in future
         this.domNode.appendChild(this._responsesTemplate());
         IO.loadResponses(this.gameid, this.updateResponse.bind(this));
       };
+
 
     } else {
       choicesNode && choicesNode.setAttribute('hidden', 'true');
@@ -75,7 +82,6 @@ class Game {
   updateResponse(data){
     let userid = data.userid, info = data.userinfo, choice = data.choice ;
     if(!userid || !info) return;
-
 
     //check if user chip already present
     let chip = this.domNode.querySelector('.response-container span[data-uid="'+ userid +'"].response-item');
@@ -105,6 +111,11 @@ class Game {
     //select the choice for current user
     if(userid === firebase.auth().currentUser.uid){
       this._updateUIOnChoiceChange(choice);
+
+      //show the new game notification
+      if(this.isAlive && !this.selectedChoice){
+        Util.newGameNotification(this.title, this.date);
+      };
     }
   };
 
@@ -189,137 +200,18 @@ class Game {
     let newNode = this.domNode.querySelector('.choice-'+newChoice);
     newNode.classList.add('selected'); //add selected class to the new choice
     //this.updateScore(newChoice); //increment the score
+
+    //hide new game tag
+    let newTagNode = this.domNode.querySelector('.new-game-tag');
+    newTagNode && newTagNode.setAttribute('hidden', 'true');
   };
 
   _checkIsAlive(date){
     let gameDate = new Date(date);
     (gameDate == "Invalid Date" || gameDate <= Date.now()) ?
-      this.isAlive = false :
-      this.isAlive = true;
-  };
+      this.isAlive = false : this.isAlive = true;
 
-}
-
-
-
-class IO {
-  static initialize(){
-    //init database refs
-    //TODO - only load future games? TBD
-    this.gamesRef = firebase.database().ref().child('games');
-    this.gamesRef.off();
-    this.gameResponsesRef = firebase.database().ref().child('responses');
-    this.gameResponsesRef.off();
-    this.usersRef = firebase.database().ref().child('users');
-  };
-
-  static registerUser(userinfo){
-    this.getUserInfo(userinfo.uid)
-      .then(snap => {
-        if(snap.exists()) return;
-        let inData = {};
-        inData[`/${userinfo.uid}`] = {
-          username: userinfo.username,
-          userpic: userinfo.userpic
-        };
-        this.usersRef.update(inData).then(() => console.log('user registered.'));
-
-      });
-
-  };
-
-  static getUserInfo(uid){
-    return this.usersRef.child(uid).once('value');
-  };
-
-  static loadGames(callback){
-    //load games data and attach child add and update listners
-    this.gamesRef.on('child_added', snap => {
-      console.log(`adding ${snap.key}`);
-      callback({
-         "gameid": snap.key,
-         "metadata": snap.val()
-       });
-    });
-
-    this.gamesRef.on('child_changed', snap => {
-      console.log(`changed ${snap.key}`);
-      callback({
-         "gameid": snap.key,
-         "metadata": snap.val()
-       });
-    });
-  };
-
-  static loadResponses(gameid, callback){
-    if(!gameid) throw new Error("Invalid parameters");
-    this.gameResponsesRef.child(gameid).on('child_added', snap => {
-      this.getUserInfo(snap.key).then(userSnap => {
-        callback({
-          "userid": userSnap.key,
-          "userinfo": userSnap.val(),
-          "choice": snap.val()
-        });
-      });
-    });
-
-    this.gameResponsesRef.child(gameid).on('child_changed', snap => {
-      this.getUserInfo(snap.key).then(userSnap => {
-        callback({
-          "userid": userSnap.key,
-          "userinfo": userSnap.val(),
-          "choice": snap.val()
-        });
-      });
-    });
-  };
-
-  static registerResponse(gameid, uid, choice, callback){
-
-    this.gameResponsesRef.child(`/${gameid}/${uid}`).set(choice)
-      .then(res => {
-        if(callback) callback();
-      });
-  };
-
-}
-
-
-class Util {
-  static formatedDateString(inDate){
-    if(!inDate) return;
-    let date = null;
-    if(!(inDate instanceof Date)){
-      date = new Date(inDate);
-    } else {
-      date = inDate;
-    };
-    if(!date) return;
-    let optionsDate = {
-      "weekday": "short",
-      "day": "2-digit",
-      "month": "short",
-      "year": "numeric"
-    };
-
-    return date.toLocaleString('en-US', optionsDate);
-  };
-
-  static formatedTimeString(inDate){
-    if(!inDate) return "";
-    let date = null;
-    if(!(inDate instanceof Date)){
-      date = new Date(inDate);
-    } else {
-      date = inDate;
-    };
-    if(!date) return;
-
-    let optionsTime = {
-      "hour":"2-digit",
-      "minute":"2-digit"
-    };
-    return date.toLocaleString('en-US', optionsTime);
+    this.date = gameDate;
   };
 
 }

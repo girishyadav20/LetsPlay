@@ -81,6 +81,12 @@
       app.userMenuContainer.removeAttribute('hidden');
 
       app.registry.forEach(game => game.showAll());
+
+      //check for notification
+      // if('Notification' in window){
+      //     IO.initializeNotifications();
+      // }
+
       //IO.loadGames(app.addUpdateGameCard);
 
     } else { //user is signed out
@@ -159,7 +165,12 @@
   // App Startup
   //************************************
 
-  window.onload = () =>{
+  window.onload = () => {
+    //register service worker
+    if('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+    //Initialize app
     app.init();
   };
 
