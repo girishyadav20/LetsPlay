@@ -1,6 +1,6 @@
 /node_modules
+/.firebaserc
+/admin.html
 /firebase.json
 /database-rules.json
-/admin.html
-/.firebaseserc
 /server
